@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 from tkinter import *
 from tkinter import filedialog as fd
+from tkinter import messagebox
 
 
 def change_lines(lines, chess_positions):
@@ -37,7 +38,29 @@ def change_lines(lines, chess_positions):
             new_lines.append(line)
     return(new_lines)
 
-
+def filter_coords(coords):
+    ''' удаление внутренних прямоугольников, фильтрация координат'''
+    n=len(coords)
+    inside_rect=[]
+    for i in range(n):
+        for j in range(i+1,n):
+            w1=coords[i][1]-coords[i][0]
+            w2=coords[j][1]-coords[j][0]
+            h1=coords[i][3]-coords[i][2]
+            w2=coords[j][3]-coords[j][2]
+            cx1=0.5*(coords[i][1]+coords[i][0])
+            cx2=0.5*(coords[j][1]+coords[j][0])
+            cy1=0.5*(coords[i][3]+coords[i][2])
+            cy2=0.5*(coords[j][3]+coords[j][2])
+            d=np.sqrt((cx2-cx1)**2+(cy1-cy2)**2)
+            if d<0.4*(w1+w2):
+                if w1>w2:
+                    inside_rect.append(j)
+                else:
+                    inside_rect.append(i)
+    return [coords[i] for i in range(n) if i not in inside_rect ]
+                    
+ 
 def get_diagramm_pos(tif_name, opts):
     '''поиск положения диаграмм на картинке'''
     # параметры  диаграмм:
@@ -55,6 +78,7 @@ def get_diagramm_pos(tif_name, opts):
                        cv2.IMREAD_GRAYSCALE)  # если кирилица в путях
     thres = cv2.threshold(
         img, 127, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+   
     h, w = thres.shape
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, dilate_size)
     # удаление разрывов в диаграмах, предобработка
@@ -64,11 +88,13 @@ def get_diagramm_pos(tif_name, opts):
         thres, 8, cv2.CV_32S)
     coords = []
     for i in stats:
-        if min_size_dia*h < i[2] < max_size_dia*h and \
+        if min_size_dia*h < i[3] < max_size_dia*h and \
                 min(i[2], i[3])/max(i[2], i[3]) > min_aspect_ratio:
-            coord = (i[0]-expand, i[0]+i[2]+expand,
-                     i[1]-expand, i[1]+i[3]+expand)
+            coord = (i[0]-expand, i[0]+i[2]+expand, # x1,x2
+                     i[1]-expand, i[1]+i[3]+expand) #y1,y2
             coords.append(coord)
+            print(f'{coord=}, {i[3]/h:3.3f}')
+    coords=filter_coords(coords) # удаление внутренних прямоугольников
     if sort_by_colomn:
         # сортировка сверху вниз, слева направо
         coords = sorted(coords, key=lambda x: x[0]+0.09*x[2])
