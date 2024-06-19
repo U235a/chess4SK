@@ -177,7 +177,7 @@ def main():
     entr_min_aspect_ratio = Spinbox(
         from_=0.7, to=1.0, format="%.2f", increment=0.01,  textvariable=var)
     entr_expand = Spinbox(from_=0, to=15, textvariable=IntVar(value=5))
-    entr_dilation = Spinbox(from_=0, to=15, textvariable=IntVar(value=5))
+    entr_dilation = Spinbox(from_=0, to=25, textvariable=IntVar(value=5))
     open_button = Button(text="Open spt", command=open_dlg)
     c1 = IntVar(value=0)
     order_by = Checkbutton(root, text="Order by row",
