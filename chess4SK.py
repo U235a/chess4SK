@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar 23 18:35:22 2021
+Created on Tue Feb 11 18:35:22 2024
 
 @author: U235
 """
@@ -77,8 +77,8 @@ def get_diagramm_pos(tif_name, opts):
     img = cv2.imdecode(np.fromfile(tif_name, dtype=np.uint8),
                        cv2.IMREAD_GRAYSCALE)  # если кирилица в путях
     thres = cv2.threshold(
-        img, 127, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
-   
+        img, 220, 255, cv2.THRESH_BINARY_INV)[1]
+    
     h, w = thres.shape
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, dilate_size)
     # удаление разрывов в диаграмах, предобработка
@@ -93,7 +93,7 @@ def get_diagramm_pos(tif_name, opts):
             coord = (i[0]-expand, i[0]+i[2]+expand, # x1,x2
                      i[1]-expand, i[1]+i[3]+expand) #y1,y2
             coords.append(coord)
-            print(f'{coord=}, {i[3]/h:3.3f}')
+            print(f'{coord}, {i[3]/h:3.3f}')
     coords=filter_coords(coords) # удаление внутренних прямоугольников
     if sort_by_colomn:
         # сортировка сверху вниз, слева направо
@@ -124,14 +124,17 @@ def processing(opts):
         lines = file.readlines()
     filelist = get_images_name(lines)
     print(filelist[0])
+    all_dia_num=0
     for name in filelist:
         pos = get_diagramm_pos(name, opts)
         if pos is not None:
+            all_dia_num+=len(list(pos.values())[0])
             chess_positions.update(pos)
     new_lines = change_lines(lines, chess_positions)
     with open(out_name_spt, 'w', encoding='cp1251') as file:
         for line in new_lines:
             file.write(line)
+    print('Total diagramms: ', all_dia_num)
     print('*'*7, 'Done', '*'*7)
     messagebox.showinfo(title=None, message='Process completed')
 
@@ -139,7 +142,7 @@ def processing(opts):
 def main():
 
     root = Tk()
-    root.title('Chess4SK   ver.08.04.21')
+    root.title('Chess4SK   ver.11.02.24')
     root.iconbitmap('chess.ico')
     def get_opts():
         opts = [name_entry.get(), entr_min_size_dia.get(), entr_max_size_dia.get(),
@@ -177,7 +180,7 @@ def main():
     entr_min_aspect_ratio = Spinbox(
         from_=0.7, to=1.0, format="%.2f", increment=0.01,  textvariable=var)
     entr_expand = Spinbox(from_=0, to=15, textvariable=IntVar(value=5))
-    entr_dilation = Spinbox(from_=0, to=25, textvariable=IntVar(value=5))
+    entr_dilation = Spinbox(from_=0, to=15, textvariable=IntVar(value=5))
     open_button = Button(text="Open spt", command=open_dlg)
     c1 = IntVar(value=0)
     order_by = Checkbutton(root, text="Order by row",
