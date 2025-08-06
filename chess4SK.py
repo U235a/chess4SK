@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb 11 18:35:22 2024
+Created on Wed Aug  6 21:20:28 2025
 
 @author: U235
 """
@@ -36,31 +36,32 @@ def change_lines(lines, chess_positions):
             flag = False
         else:
             new_lines.append(line)
-    return(new_lines)
+    return (new_lines)
+
 
 def filter_coords(coords):
     ''' удаление внутренних прямоугольников, фильтрация координат'''
-    n=len(coords)
-    inside_rect=[]
+    n = len(coords)
+    inside_rect = []
     for i in range(n):
-        for j in range(i+1,n):
-            w1=coords[i][1]-coords[i][0]
-            w2=coords[j][1]-coords[j][0]
-            h1=coords[i][3]-coords[i][2]
-            w2=coords[j][3]-coords[j][2]
-            cx1=0.5*(coords[i][1]+coords[i][0])
-            cx2=0.5*(coords[j][1]+coords[j][0])
-            cy1=0.5*(coords[i][3]+coords[i][2])
-            cy2=0.5*(coords[j][3]+coords[j][2])
-            d=np.sqrt((cx2-cx1)**2+(cy1-cy2)**2)
-            if d<0.4*(w1+w2):
-                if w1>w2:
+        for j in range(i+1, n):
+            w1 = coords[i][1]-coords[i][0]
+            w2 = coords[j][1]-coords[j][0]
+            h1 = coords[i][3]-coords[i][2]
+            w2 = coords[j][3]-coords[j][2]
+            cx1 = 0.5*(coords[i][1]+coords[i][0])
+            cx2 = 0.5*(coords[j][1]+coords[j][0])
+            cy1 = 0.5*(coords[i][3]+coords[i][2])
+            cy2 = 0.5*(coords[j][3]+coords[j][2])
+            d = np.sqrt((cx2-cx1)**2+(cy1-cy2)**2)
+            if d < 0.4*(w1+w2):
+                if w1 > w2:
                     inside_rect.append(j)
                 else:
                     inside_rect.append(i)
-    return [coords[i] for i in range(n) if i not in inside_rect ]
-                    
- 
+    return [coords[i] for i in range(n) if i not in inside_rect]
+
+
 def get_diagramm_pos(tif_name, opts):
     '''поиск положения диаграмм на картинке'''
     # параметры  диаграмм:
@@ -78,23 +79,22 @@ def get_diagramm_pos(tif_name, opts):
                        cv2.IMREAD_GRAYSCALE)  # если кирилица в путях
     thres = cv2.threshold(
         img, 220, 255, cv2.THRESH_BINARY_INV)[1]
-    
+
     h, w = thres.shape
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, dilate_size)
     # удаление разрывов в диаграмах, предобработка
     thres = cv2.dilate(thres, kernel)
-    #cv2.imwrite('dilate.tif', thres)
     num_labels, _, stats, _ = cv2.connectedComponentsWithStats(
         thres, 8, cv2.CV_32S)
     coords = []
     for i in stats:
         if min_size_dia*h < i[3] < max_size_dia*h and \
                 min(i[2], i[3])/max(i[2], i[3]) > min_aspect_ratio:
-            coord = (i[0]-expand, i[0]+i[2]+expand, # x1,x2
-                     i[1]-expand, i[1]+i[3]+expand) #y1,y2
+            coord = (i[0]-expand, i[0]+i[2]+expand,  # x1,x2
+                     i[1]-expand, i[1]+i[3]+expand)  # y1,y2
             coords.append(coord)
             print(f'{coord}, {i[3]/h:3.3f}')
-    coords=filter_coords(coords) # удаление внутренних прямоугольников
+    coords = filter_coords(coords)  # удаление внутренних прямоугольников
     if sort_by_colomn:
         # сортировка сверху вниз, слева направо
         coords = sorted(coords, key=lambda x: x[0]+0.09*x[2])
@@ -105,30 +105,49 @@ def get_diagramm_pos(tif_name, opts):
     # имя файла и число найденых на нем диаграмм
     print(tif_name, '\t', len(coords))
     if len(coords) > 0:
-        return({os.path.basename(tif_name): coords})
+        return ({os.path.basename(tif_name): coords})
 
 
-def get_images_name(lines):
+def get_images_name(lines, page_ranges):
     '''создание списка файлов изображений из spt'''
     filelist = []
+    counter = 1
     for line in lines:
         if line[:9] == '[FFNAME]=':
-            filelist.append(line[9:-1])
+            if (counter in page_ranges) or page_ranges == []:
+                filelist.append(line[9:-1])
+            counter += 1
     return filelist
+
+
+def parse_page_ranges(opts):
+    '''Парсинг диапазона страниц'''
+    pages = []
+    segments = opts[7].split(',')
+    for segment in segments:
+        segment = segment.strip()  # Удаление начальных и конечных пробелов
+        if '-' in segment:
+            start, end = map(int, segment.split('-'))
+            pages.extend(range(start, end + 1))
+        elif segment.isdigit():
+            pages.append(int(segment))
+    return sorted(list(set(pages)))  # Удаление дублей и сортировка
+
 
 def processing(opts):
     in_name_spt = opts[0]
     chess_positions = dict()
     out_name_spt = ''.join([in_name_spt[:-4], '_new.spt'])
+    page_ranges = parse_page_ranges(opts)
     with open(in_name_spt, 'r', encoding='cp1251') as file:
         lines = file.readlines()
-    filelist = get_images_name(lines)
+    filelist = get_images_name(lines, page_ranges)
     print(filelist[0])
-    all_dia_num=0
+    all_dia_num = 0
     for name in filelist:
         pos = get_diagramm_pos(name, opts)
         if pos is not None:
-            all_dia_num+=len(list(pos.values())[0])
+            all_dia_num += len(list(pos.values())[0])
             chess_positions.update(pos)
     new_lines = change_lines(lines, chess_positions)
     with open(out_name_spt, 'w', encoding='cp1251') as file:
@@ -142,12 +161,13 @@ def processing(opts):
 def main():
 
     root = Tk()
-    root.title('Chess4SK   ver.11.02.24')
+    root.title('Chess4SK   ver.06.08.25')
     root.iconbitmap('chess.ico')
+
     def get_opts():
         opts = [name_entry.get(), entr_min_size_dia.get(), entr_max_size_dia.get(),
                 entr_min_aspect_ratio.get(), entr_expand.get(), entr_dilation.get(),
-                c1.get()
+                c1.get(), pages_entry.get()
                 ]
         print('click')
         print(opts)
@@ -156,10 +176,13 @@ def main():
     name = StringVar()
     name_entry = Entry(textvariable=name)
 
+    page_number_rangename = StringVar()
+    pages_entry = Entry(textvariable=page_number_rangename)
+
     def open_dlg():
         global file_path
         file_path = fd.askopenfilename(defaultextension="spt",
-                                       filetypes=[("Task file", 
+                                       filetypes=[("Task file",
                                                    "*.spt"), ("All files", "*.*")], )
         name_entry.delete(0, END)
         name_entry.insert(0, file_path)
@@ -171,6 +194,7 @@ def main():
     label3 = Label(text="min aspect ratio:")
     label4 = Label(text="expand frame:")
     label5 = Label(text="dilatation dia:")
+    label6 = Label(text="page number range:")
 
     entr_min_size_dia = Spinbox(
         from_=0, to=1.0, format="%.2f", increment=0.01, textvariable=DoubleVar(value=0.09))
@@ -193,16 +217,23 @@ def main():
     label3.grid(row=1, column=2, padx=5, pady=5, sticky="w")
     label4.grid(row=2, column=2, padx=5, pady=5, sticky="w")
     label5.grid(row=3, column=2, padx=5, pady=5, sticky="w")
+
     entr_min_size_dia.grid(row=1, column=1, padx=5, pady=5, sticky="w")
     entr_max_size_dia.grid(row=2, column=1, padx=5, pady=5, sticky="w")
     entr_min_aspect_ratio.grid(row=1, column=3, padx=5, pady=5, sticky="w")
     entr_expand.grid(row=2, column=3, padx=5, pady=5, sticky="w")
     entr_dilation.grid(row=3, column=3, padx=5, pady=5, sticky="w")
     order_by.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+
+    label6.grid(row=4, column=0, padx=5, pady=5, sticky="w")
+    pages_entry.grid(row=4, column=1, padx=5, pady=5,
+                     sticky=E+W+S+N, columnspan=3)
+
     processing_button = Button(text="Processing", command=get_opts)
-    processing_button.grid(row=4, column=1, padx=5,
+    processing_button.grid(row=5, column=1, padx=5,
                            pady=15, sticky=E+W+S+N, columnspan=2)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()
