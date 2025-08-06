@@ -8,6 +8,6 @@ chess4SK.py - скрипт поиска шахматных диаграмм на
 2. Запустить chess4SK.py, в интерфейсе выбрать нужный spt-файл, расставить опции, если необходимо, и нажать кнопку Process. Создасться новый spt файл, там же где у вас находится изначальный spt файл.
 3. Запустить SK, открыть этот новый spt, после открытия надо заменить тип зон Bulk operations... на Picture-zone.
 
-![screenshot](https://github.com/U235a/chess4SK/blob/main/screenshot.png "screenshot")
+![screenshot](https://github.com/U235a/chess4SK/blob/main/screen1.png "screenshot")
 
 Номера страниц задаются в формате: 2,5,7-12,13. Если поле пустое, то обрабатываются все страницы.
